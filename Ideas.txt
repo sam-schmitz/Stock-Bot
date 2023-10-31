@@ -1,0 +1,61 @@
+Verion 1.1:
+Features:
+_update_member_database() - stockServerV2.py
+	tracks stocks to there member's own database
+	If member's database doesn't exist don't track and notify the user
+add_trades.py - stockServer.py
+	add in a call for _update_member_database()
+refresh_server() - stockServerV2.py
+	updates the gain for the server
+	If a member is given then only their table is updated
+refresh() - skatepark.py
+	calls refresh to the sbServer object
+	needs a input in _run()
+createServer.py
+	New program that sets up the server
+create_server() - createServer.py
+	Creates a new server
+_create_databse() - createServer.py
+	Creates the Congress Trades database
+	Adds the Trades table
+create_member_table() - createServer.py
+	Creates a table for a given member
+
+Version 1.2:
+_update_DB_of_members() - stockServerV2.py
+	Tracks how a member is performing
+refresh_server() - stockServer.py
+	needs to refresh the database of members as well
+_update_stock_database() - stockServerV2.py
+	Tracks how often a particular stock is traded
+add_trades() - stockServerV2.py
+	add in calls for _update_DB_of_members() and _update_stock_database()
+
+Version 1.3:
+board.py
+	methods for JSON files that can store trades
+add_trades() - stockServer.py
+	When a stock fails to be stored use board.py to store it
+sb() - skatepark.py
+	allow stock to be imported from board(JSON)
+
+Verison 2:	Data analitics
+Improve SQL Server
+	Interconect tables more
+		Connect member tables to table of members
+	Use JSON witin SQL Server to store arrays
+		Members can have an array of the departments/sectors that they are affiliated to check for crossover
+		stock table has an array of associated trades (tradeIDNum)
+Add support for a watch sheet
+	would be a json file
+	first row shows what they are watching
+	when a program is run it looks at the json file and sees any changes
+		then it recomends new stocks and adds them to the file
+
+Version 3:	Explanding the scope
+Add in tracking for other wales
+	hedgefunds
+	blackrock
+Add in goverment contract watching
+	track how much a company is spending to obtain government contracts and look for trends
+

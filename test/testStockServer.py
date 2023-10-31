@@ -68,6 +68,7 @@ class testStockServer(unittest.TestCase):
         self.tradeIDSell = 2
         self.tradeBuy2 = ['AMZN', 'BUY', datetime(2023, 8, 1), datetime(2023, 8, 15), 'Joe Biden']
         self.tradeSell2 = ['AMZN', 'SELL', datetime(2023, 8, 25), datetime(2023, 8, 30), 'Joe Biden']
+        self.tradeBuy3 = ['MSFT', 'BUY', datetime(2023, 8, 1), datetime(2023, 8, 15), 'Donald Trump']
         #MSFT is owned in the server
         #AMZN is not owned
 
@@ -96,6 +97,18 @@ class testStockServer(unittest.TestCase):
         AND Owned='1';
         """):
             self.cursor.fetchall.return_value = [[1]]
+        elif sql == ("USE [CongressTrades]\n"
+                "IF OBJECT_ID('BidenJoe', 'U') IS NOT NULL\n"
+                "SELECT 1\n"
+                "ELSE\n"
+                "SELECT 0\n"):
+            self.cursor.fetchall.return_value = [[1]]
+        elif sql == ("USE [CongressTrades]\n"
+                "IF OBJECT_ID('TrumpDonald', 'U') IS NOT NULL\n"
+                "SELECT 1\n"
+                "ELSE\n"
+                "SELECT 0\n"):
+            self.cursor.fetchall.return_value = [[0]]
         #else:
             #print("no response")
 
@@ -246,6 +259,43 @@ class testStockServer(unittest.TestCase):
         execute_calls = self.server.add_trade.call_args_list
         self.assertEqual(self.tradeBuy, execute_calls[0][0][0])
         self.assertEqual(self.tradeSell2, execute_calls[1][0][0])
+
+    def test_add_trade_calls_update_member_database(self):
+        self.server._update_member_database = MagicMock()
+        self.server._make_table_name = MagicMock()
+        def make_table_name(name):
+            return 'BidenJoe'
+        self.server._make_table_name.side_effect = make_table_name
+        self.server.add_trade(self.tradeBuy)
+        self.server._update_member_database.assert_called_once_with('BidenJoe', ['MSFT', 'BUY', datetime(2023, 8, 1), datetime(2023, 8, 15), 'Joe Biden', 'INFORMATION TECHNOLOGY', 14])
+        self.server._make_table_name.assert_called_once_with('Joe Biden')
+
+    def test_add_trade_checks_if_member_table_exists(self):
+        self.server._update_member_database = MagicMock()
+        self.server._make_table_name = MagicMock()
+        def make_table_name(name):
+            return 'BidenJoe'
+        self.server._make_table_name.side_effect = make_table_name
+        self.server.add_trade(self.tradeBuy)
+        self.cnxn.cursor.execute.assert_called_with("USE [CongressTrades]\n"
+                "IF OBJECT_ID('BidenJoe', 'U') IS NOT NULL\n"
+                "SELECT 1\n"
+                "ELSE\n"
+                "SELECT 0\n")
+
+    def test_add_trade_member_table_doesnt_exist(self):
+        self.server._update_member_database = MagicMock()
+        self.server._make_table_name = MagicMock()
+        def make_table_name(name):
+            return 'TrumpDonald'
+        self.server._make_table_name.side_effect = make_table_name
+        self.server.add_trade(self.tradeBuy3)
+        self.server._update_member_database.assert_not_called()
+
+    def test_make_table_name_correct(self):
+        self.assertEqual(self.server._make_table_name('Joe Biden'), 'BidenJoe')
+        self.assertEqual(self.server._make_table_name('Shelly Moore Capito'), 'MooreCapitoShelly')
+        self.assertEqual(self.server._make_table_name('Mario Diaz-Balart Caballero'), 'Diaz-BalartCaballeroMario')
 
 if __name__ == "__main__":
     unittest.main()

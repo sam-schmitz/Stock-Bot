@@ -17,7 +17,6 @@ class sbServer:
             response = self.add_trade(trade)
             if response != None:
                 print("error: ", response)
-        self.cnxn.commit()
         #self.refresh_server()
 
     def add_trade(self, trade):
@@ -36,6 +35,25 @@ class sbServer:
             return trade
         if delay > -1:
             tradeID = self._update_trade_database(trade)
+            self.cnxn.commit()
+            tName = self._make_table_name(trade[4])
+            e1 = ("USE [CongressTrades]\n"
+                f"IF OBJECT_ID('{tName}', 'U') IS NOT NULL\n"
+                "SELECT 1\n"
+                "ELSE\n"
+                "SELECT 0;")
+            self.cursor.execute(e1)
+            while self.cursor.nextset():
+                try:
+                    rows = self.cursor.fetchall()
+                    break
+                except pyodbc.ProgrammingError:
+                    continue
+            myresult = rows[-1][-1]
+            if myresult != 1:
+                print("table not found: ", tName)
+            else:
+                self._update_member_database(tName, trade)
         #find memberDatabase
         #self._update_member_database(table, trade, tradeID)
 
@@ -61,12 +79,13 @@ class sbServer:
         AND Owned='1';
         """)
         self.cursor.execute(e1)
-        rows = self.cursor.fetchall()
-        myresult = rows[-1][-1]
-        #print("myresutlt", myresult)
-        #if owned  & tradeType==SELL self._memberSell(table, trade)
-        #elif not owned self._member_buy(table, trade)
-        #else the stock is currently owned, do nothing
+        while self.cursor.nextset():
+            try:
+                rows = self.cursor.fetchall()
+                break
+            except pyodbc.ProgrammingError:
+                continue
+        myresult = rows[-1][-1]     #if == 1 the stock is owned
         if myresult == 1:
             if trade[1] == "SELL":
                 self._member_sell(table, trade)
@@ -94,7 +113,7 @@ class sbServer:
         e = (f"USE [CongressTrades]\n"
         f"INSERT INTO {table} (Tick, ProfitMember, ProfitUS, BoughtPriceM, BoughtPriceU, Owned, TradeDelay)\n"
         f"VALUES ('{trade[0]}', {profitM}, {profitU}, {pp1}, {pp2}, '1', {trade[-1]});\n")
-        self.cnxn.cursor.execute(e)
+        self.cursor.execute(e)
 
     def _member_sell(self, table, trade):
         #get the data from the server
@@ -154,6 +173,11 @@ class sbServer:
     def _refresh_DB_of_members(self, memner):
         pass
         #get the new average %s for each member
+
+    def _make_table_name(self, memName):
+        space = memName.index(" ")
+        n = memName.replace(" ", "")
+        return n[space:] + n[:space]
 
 
         
