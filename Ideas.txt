@@ -1,16 +1,5 @@
 Verion 1.1:
 Features:
-_update_member_database() - stockServerV2.py
-	tracks stocks to there member's own database
-	If member's database doesn't exist don't track and notify the user
-add_trades.py - stockServer.py
-	add in a call for _update_member_database()
-refresh_server() - stockServerV2.py
-	updates the gain for the server
-	If a member is given then only their table is updated
-refresh() - skatepark.py
-	calls refresh to the sbServer object
-	needs a input in _run()
 createServer.py
 	New program that sets up the server
 create_server() - createServer.py

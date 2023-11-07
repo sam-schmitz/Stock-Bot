@@ -1,7 +1,8 @@
 #stockServerV2.py
 #By: Sam Schmitz
 
-from stockChecker import cPrice, pPrice, stock_sector
+from sb.stockChecker import cPrice, pPrice, stock_sector
+import datetime
 
 
 class sbServer:
@@ -17,19 +18,20 @@ class sbServer:
             response = self.add_trade(trade)
             if response != None:
                 print("error: ", response)
-        #self.refresh_server()
+        self.refresh_server()
 
     def add_trade(self, trade):
         delay = -1
         try:
+            print(trade)
             #calculate department
             department = stock_sector(trade[0])
-            print(department)
+            print("Department: ", department)
             trade.append(department)
             #calculate delay
             delay = int((trade[3] - trade[2]).days)
             trade.append(delay)
-            print(delay)
+            print("Delay: ", delay)
             #tradeID = self._update_trade_database(trade)
         except:
             return trade
@@ -37,6 +39,7 @@ class sbServer:
             tradeID = self._update_trade_database(trade)
             self.cnxn.commit()
             tName = self._make_table_name(trade[4])
+            exist = self._table_exists(tName)
             e1 = ("USE [CongressTrades]\n"
                 f"IF OBJECT_ID('{tName}', 'U') IS NOT NULL\n"
                 "SELECT 1\n"
@@ -50,16 +53,26 @@ class sbServer:
                 except pyodbc.ProgrammingError:
                     continue
             myresult = rows[-1][-1]
-            if myresult != 1:
+            if exist == False:
                 print("table not found: ", tName)
             else:
                 self._update_member_database(tName, trade)
         #find memberDatabase
         #self._update_member_database(table, trade, tradeID)
 
-    def refresh_server(self):
+    def refresh_server(self, m=None):
         #updates the member databases
-        self._refresh_member_databases()
+        #m = a single member(str) or a list of members
+        if m == None:
+            e1 = ("USE [CongressTrades]"
+              "SELECT"
+              "*"
+              "FROM"
+              "information_schema.tables;")
+            self.cursor.execute(e1)
+            m = self._fetchall()
+            m.remove("Trades")
+        self._refresh_member_tables(m)
 
     def close(self):
         self.cursor.close()
@@ -79,12 +92,7 @@ class sbServer:
         AND Owned='1';
         """)
         self.cursor.execute(e1)
-        while self.cursor.nextset():
-            try:
-                rows = self.cursor.fetchall()
-                break
-            except pyodbc.ProgrammingError:
-                continue
+        rows = self._fetchall()
         myresult = rows[-1][-1]     #if == 1 the stock is owned
         if myresult == 1:
             if trade[1] == "SELL":
@@ -165,19 +173,68 @@ class sbServer:
             #self._refresh_member_database(member)
             #self._refresh_DB_of_members(member)
 
-    def _refresh_member_database(self, member):
-        pass
-        #for each trade
-            #if owned == True get the new % profits
+    def _refresh_member_tables(self, member):
+        if type(member) != type([]):
+            member = [member]
+        for m in member:
+            print("member: ", m)
+            tName = self._make_table_name(m)
+            if not self._table_exists(tName):
+                print("table not found: ", tName)
+                continue
+            e1 = ("USE [CongressTrades]\n" 
+                "SELECT Tick, BoughtPriceM, BoughtPriceU\n"
+                f"FROM {tName}\n"
+                "WHERE Owned='1';")
+            self.cursor.execute(e1)
+            rows = self._fetchall()
+            t = datetime.datetime.now()
+            #print("rows: ", rows)
+            for row in rows:
+                tick, bPMem, bPUs = row[0], int(row[1]), int(row[2])
+                cp = cPrice(tick)
+                print("tick:", tick)
+                print("BoughtPriceM: ", bPMem)
+                print("BoughtPriceUs: ", bPUs)
+                print("Current Price: ", cp)
+                #calculate the percent gains
+                profitM = round(((cp-bPMem)/bPMem)*100)
+                profitU = round(((cp-bPUs)/bPUs)*100)
+                e2 = ("USE [CongressTrades]\n" 
+                f"UPDATE {tName}\n"
+                f"SET ProfitMember='{profitM}', ProfitUS='{profitU}'\n"
+                f"WHERE Tick='{tick}'\n"
+                "AND Owned='1';")
+                self.cursor.execute(e2)
+                self.cnxn.commit()
 
     def _refresh_DB_of_members(self, memner):
         pass
         #get the new average %s for each member
 
     def _make_table_name(self, memName):
-        space = memName.index(" ")
+        space = memName.find(" ")
+        if space == -1:
+            return memName
         n = memName.replace(" ", "")
         return n[space:] + n[:space]
 
+    def _table_exists(self, tName):
+        #does a given table exist in the server
+        e1 = ("USE [CongressTrades]\n"
+                f"IF OBJECT_ID('{tName}', 'U') IS NOT NULL\n"
+                "SELECT 1\n"
+                "ELSE\n"
+                "SELECT 0;")
+        self.cursor.execute(e1)
+        rows = self._fetchall()
+        return bool(rows[-1][-1])
 
-        
+    def _fetchall(self):
+        while self.cursor.nextset():
+            try:
+                rows = self.cursor.fetchall()
+                break
+            except pyodbc.ProgrammingError:
+                continue
+        return rows

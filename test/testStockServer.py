@@ -13,6 +13,8 @@ def _cPrice(tick):
             return 100
         elif tick == 'AMZN':
             return 100
+        elif tick == 'AAPL':
+            return 100
         return None
 
 def _pPrice(tick, d):
@@ -25,6 +27,8 @@ def _pPrice(tick, d):
             return 60
         elif d == datetime(2023, 8, 30):
             return 80
+        elif d == datetime(2023, 9, 1):
+            return 100
     if tick == 'AMZN':
         if (d == datetime(2023, 8, 1)):
             return 20
@@ -34,6 +38,19 @@ def _pPrice(tick, d):
             return 60
         elif d == datetime(2023, 8, 30):
             return 80
+        elif d == datetime(2023, 9, 1):
+            return 100
+    if tick == "AAPL":
+        if (d == datetime(2023, 8, 1)):
+            return 20
+        elif d == datetime(2023, 8, 15):
+            return 40
+        elif d == datetime(2023, 8, 25):
+            return 60
+        elif d == datetime(2023, 8, 30):
+            return 80
+        elif d == datetime(2023, 9, 1):
+            return 100
 
 def _stock_sector(tick):
     if tick == 'MSFT':
@@ -51,12 +68,15 @@ class testStockServer(unittest.TestCase):
     #@patch('sb.stockServerV2.sc')
     #@patch(sc, 'cPrice', side_effect=cPrice)
     #@patch(sc, 'pPrice', side_effect=pPrice)
+    @patch.object(sb.stockServerV2.datetime, 'datetime')
 
-    def setUp(self):
+
+    def setUp(self, mock_datetime):
         self.cnxn = MagicMock()
         self.cnxn.cursor = MagicMock()
         self.cursor = self.cnxn.cursor
         self.cnxn.cursor.execute.side_effect = self.cursor_response
+        mock_datetime.now.return_value = datetime(2023, 9, 1)
         #print("set-up:")
         #print("cnxn: ", self.cnxn)
         #print("cursor: ", self.cnxn.cursor)
@@ -101,16 +121,63 @@ class testStockServer(unittest.TestCase):
                 "IF OBJECT_ID('BidenJoe', 'U') IS NOT NULL\n"
                 "SELECT 1\n"
                 "ELSE\n"
-                "SELECT 0\n"):
+                "SELECT 0;"):
             self.cursor.fetchall.return_value = [[1]]
         elif sql == ("USE [CongressTrades]\n"
                 "IF OBJECT_ID('TrumpDonald', 'U') IS NOT NULL\n"
                 "SELECT 1\n"
                 "ELSE\n"
-                "SELECT 0\n"):
+                "SELECT 0;"):
             self.cursor.fetchall.return_value = [[0]]
+        elif sql == ("USE [CongressTrades]\n" 
+              "SELECT Tick, BoughtPriceM, BoughtPriceU\n"
+              f"FROM BidenJoe\n"
+              "WHERE Owned='1';"):
+            self.cursor.fetchall.return_value = ([["MSFT", "20", "40"], 
+                                                  ["AMZN", "20", "40"], 
+                                                  ["AAPL", "30", "35"]])
+        elif sql == ("USE [CongressTrades]\n"
+                     "SELECT Tick, BoughtPriceM, BoughtPriceU\n"
+                     "FROM ObamaBarak"
+                     "WHERE Owned='1';"):
+            self.cursor.fetchall.return_value = ([["MSFT", "20", "40"], 
+                                                  ["AMZN", "20", "40"], 
+                                                  ["AAPL", "30", "35"]])
+        elif sql == ("USE [CongressTrades]\n"
+                     "SELECT Tick, BoughtPriceM, BoughtPriceU\n"
+                     "FROM BushGeorge"
+                     "WHERE Owned='1';"):
+            self.cursor.fetchall.return_value = ([["MSFT", "20", "40"], 
+                                                  ["AMZN", "20", "40"], 
+                                                  ["AAPL", "30", "35"]])
+        elif sql == ("USE [CongressTrades]"
+              "SELECT"
+              "*"
+              "FROM"
+              "information_schema.tables;"):
+            self.cursor.fetchall.return_value = (["BidenJoe", "TrumpDonald", "ObamaBarak", "Trades"])
         #else:
             #print("no response")
+
+    def make_table_name(self, name):
+            if name == "Joe Biden":
+                return "BidenJoe"
+            elif name == "Donald Trump":
+                return 'TrumpDonald'
+            elif name == "Barak Obama":
+                return "ObamaBarak"
+            elif name == "George Bush":
+                return "BushGeorge"
+
+    def table_exists(self, tName):
+        if tName == "BidenJoe":
+            return True
+        elif tName == "TrumpDonald":
+            return False
+        elif tName == "ObamaBarak":
+            return True
+        elif tName == "BushGeorge":
+            return True
 
     def test_member_buy_sql(self):
         self.server._member_buy('BidenJoe', self.tradeBuy)
@@ -263,9 +330,7 @@ class testStockServer(unittest.TestCase):
     def test_add_trade_calls_update_member_database(self):
         self.server._update_member_database = MagicMock()
         self.server._make_table_name = MagicMock()
-        def make_table_name(name):
-            return 'BidenJoe'
-        self.server._make_table_name.side_effect = make_table_name
+        self.server._make_table_name.side_effect = self.make_table_name
         self.server.add_trade(self.tradeBuy)
         self.server._update_member_database.assert_called_once_with('BidenJoe', ['MSFT', 'BUY', datetime(2023, 8, 1), datetime(2023, 8, 15), 'Joe Biden', 'INFORMATION TECHNOLOGY', 14])
         self.server._make_table_name.assert_called_once_with('Joe Biden')
@@ -273,22 +338,18 @@ class testStockServer(unittest.TestCase):
     def test_add_trade_checks_if_member_table_exists(self):
         self.server._update_member_database = MagicMock()
         self.server._make_table_name = MagicMock()
-        def make_table_name(name):
-            return 'BidenJoe'
-        self.server._make_table_name.side_effect = make_table_name
+        self.server._make_table_name.side_effect = self.make_table_name
         self.server.add_trade(self.tradeBuy)
         self.cnxn.cursor.execute.assert_called_with("USE [CongressTrades]\n"
                 "IF OBJECT_ID('BidenJoe', 'U') IS NOT NULL\n"
                 "SELECT 1\n"
                 "ELSE\n"
-                "SELECT 0\n")
+                "SELECT 0;")
 
     def test_add_trade_member_table_doesnt_exist(self):
         self.server._update_member_database = MagicMock()
         self.server._make_table_name = MagicMock()
-        def make_table_name(name):
-            return 'TrumpDonald'
-        self.server._make_table_name.side_effect = make_table_name
+        self.server._make_table_name.side_effect = self.make_table_name
         self.server.add_trade(self.tradeBuy3)
         self.server._update_member_database.assert_not_called()
 
@@ -296,6 +357,101 @@ class testStockServer(unittest.TestCase):
         self.assertEqual(self.server._make_table_name('Joe Biden'), 'BidenJoe')
         self.assertEqual(self.server._make_table_name('Shelly Moore Capito'), 'MooreCapitoShelly')
         self.assertEqual(self.server._make_table_name('Mario Diaz-Balart Caballero'), 'Diaz-BalartCaballeroMario')
+
+    def test_refresh_server_one_member(self):
+        self.server._table_exists = MagicMock()
+        self.server._table_exists = self.table_exists
+        self.server._make_table_name = MagicMock()
+        self.server._make_table_name.side_effect = self.make_table_name
+        self.server.refresh_server("Joe Biden")
+        self.server._make_table_name.assert_called_once_with("Joe Biden")
+        e1 = ("USE [CongressTrades]\n" 
+              "SELECT Tick, BoughtPriceM, BoughtPriceU\n"
+              "FROM BidenJoe\n"
+              "WHERE Owned='1';")
+        e2 = ("USE [CongressTrades]\n" 
+              "UPDATE BidenJoe\n"
+              "SET ProfitMember='400', ProfitUS='150'\n"
+              "WHERE Tick='MSFT'\n"
+              "AND Owned='1';")
+        e3 = ("USE [CongressTrades]\n" 
+              "UPDATE BidenJoe\n"
+              "SET ProfitMember='400', ProfitUS='150'\n"
+              "WHERE Tick='AMZN'\n"
+              "AND Owned='1';")
+        e4 = ("USE [CongressTrades]\n" 
+              "UPDATE BidenJoe\n"
+              "SET ProfitMember='233', ProfitUS='186'\n"
+              "WHERE Tick='AAPL'\n"
+              "AND Owned='1';")
+        execute_calls = self.cnxn.cursor.execute.call_args_list
+        self.assertEqual(e1, execute_calls[0][0][0])
+        self.assertEqual(e2, execute_calls[1][0][0])
+        self.assertEqual(e3, execute_calls[2][0][0])
+        self.assertEqual(e4, execute_calls[3][0][0])
+
+    def test_refresh_server_one_member_no_exist(self):
+        self.server._table_exists = MagicMock()
+        self.server._table_exists = self.table_exists
+        self.server._make_table_name = MagicMock()
+        self.server._make_table_name.side_effect = self.make_table_name
+        self.server.refresh_server("Donald Trump")
+        self.server._make_table_name.assert_called_once_with("Donald Trump")
+        self.cursor.execute.assert_not_called()
+
+    def test_refresh_server_multiple_members(self):
+        self.server._table_exists = MagicMock()
+        self.server._table_exists = self.table_exists
+        self.server._make_table_name = MagicMock()
+        self.server._make_table_name.side_effect = self.make_table_name
+        self.server.refresh_server(["Joe Biden", "Donald Trump", "Barak Obama", "George Bush"])
+        e1 = ("USE [CongressTrades]\n" 
+              "SELECT Tick, BoughtPriceM, BoughtPriceU\n"
+              "FROM BidenJoe\n"
+              "WHERE Owned='1';")
+        e2 = ("USE [CongressTrades]\n" 
+              "SELECT Tick, BoughtPriceM, BoughtPriceU\n"
+              "FROM BushGeorge\n"
+              "WHERE Owned='1';")
+        e3 = ("USE [CongressTrades]\n" 
+              "UPDATE BidenJoe\n"
+              "SET ProfitMember='400', ProfitUS='150'\n"
+              "WHERE Tick='MSFT'\n"
+              "AND Owned='1';")
+        e4 = ("USE [CongressTrades]\n" 
+              "UPDATE ObamaBarak\n"
+              "SET ProfitMember='400', ProfitUS='150'\n"
+              "WHERE Tick='AMZN'\n"
+              "AND Owned='1';")
+        e5 = ("USE [CongressTrades]\n" 
+              "UPDATE BushGeorge\n"
+              "SET ProfitMember='233', ProfitUS='186'\n"
+              "WHERE Tick='AAPL'\n"
+              "AND Owned='1';")
+        execute_calls = self.cnxn.cursor.execute.call_args_list
+        self.assertEqual(e1, execute_calls[0][0][0])
+        self.assertEqual(e2, execute_calls[8][0][0])
+        self.assertEqual(e3, execute_calls[1][0][0])
+        self.assertEqual(e4, execute_calls[6][0][0])
+        self.assertEqual(e5, execute_calls[11][0][0])
+
+    def test_refresh_server_no_members(self):
+        self.server._refresh_member_tables = MagicMock()
+        self.server.refresh_server()
+        e1 = ("USE [CongressTrades]"
+              "SELECT"
+              "*"
+              "FROM"
+              "information_schema.tables;")
+        self.cursor.execute.assert_called_with(e1)
+        self.server._refresh_member_tables.assert_called_with(["BidenJoe", "TrumpDonald", "ObamaBarak"])
+
+    def test_add_trades_calls(self):
+        self.server.add_trade = MagicMock()
+        self.server.refresh_server = MagicMock()
+        self.server.add_trades([self.tradeBuy])
+        self.server.refresh_server.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()

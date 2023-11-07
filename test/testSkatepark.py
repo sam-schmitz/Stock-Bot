@@ -32,6 +32,14 @@ class testSkatepark(unittest.TestCase):
         self.skatepark.sb(self.date)
         self.skatepark.server.add_trades.assert_called_with([['MSFT', 'BUY', datetime.datetime(2023, 8, 1, 0, 0), datetime.datetime(2023, 8, 15), 'Joe Biden'], ['AMZN', 'SELL', datetime.datetime(2023, 8, 25, 0, 0), datetime.datetime(2023, 8, 30), 'Joe Biden']])
 
+    def test_refresh_no_member(self):
+        self.skatepark.refresh()
+        self.skatepark.server.refresh_server.assert_called_once()
+
+    def test_refresh_members_given(self):
+        self.skatepark.refresh(["Joe Biden", "Donald Trump"])
+        self.skatepark.server.refresh_server.assert_called_with(["Joe Biden", "Donald Trump"])
+
 
 if __name__ == "__main__":
     unittest.main()

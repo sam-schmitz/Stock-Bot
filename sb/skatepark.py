@@ -2,8 +2,8 @@
 #By: Sam Schmitz
 #the program that runs the stockBots connected to the server
 
-from stockServerV2 import sbServer
-from congressTrades import getTrades
+from sb.stockServerV2 import sbServer
+from sb.congressTrades import getTrades
 import pyodbc
 from datetime import datetime
 
@@ -35,6 +35,19 @@ class skatepark:
                 d = int(input())
                 date = datetime(y, m, d)
                 self.sb(date)
+            elif bot == "refresh":
+                mems = []
+                while True:
+                    print("Enter a new member or n: ")
+                    i = str(input())
+                    if i == "n":
+                        break
+                    mems.append(i)
+                if mems == []:
+                    self.refresh()
+                else:
+                    self.refresh(mems)
+                
             elif bot == "ollie":
                 self.ollie()
             elif bot == "kickflip":
@@ -55,6 +68,12 @@ class skatepark:
     def sb(self, date):
         trades = getTrades(date)
         self.server.add_trades(trades)
+
+    def refresh(self, members=None):
+        if members != None:
+            self.server.refresh_server(members)
+        else:
+            self.server.refresh_server()
 
     def ollie(self):
         print("this function is not currently active. Please select another one")
