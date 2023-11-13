@@ -3,6 +3,7 @@
 
 from sb.stockChecker import cPrice, pPrice, stock_sector
 import datetime
+from sb.createServer import create_member_table
 
 
 class sbServer:
@@ -46,17 +47,12 @@ class sbServer:
                 "ELSE\n"
                 "SELECT 0;")
             self.cursor.execute(e1)
-            while self.cursor.nextset():
-                try:
-                    rows = self.cursor.fetchall()
-                    break
-                except pyodbc.ProgrammingError:
-                    continue
+            rows = self._fetchall()
             myresult = rows[-1][-1]
             if exist == False:
                 print("table not found: ", tName)
-            else:
-                self._update_member_database(tName, trade)
+                create_member_table(self.cnxn, self.cursor, tName)
+            self._update_member_database(tName, trade)
         #find memberDatabase
         #self._update_member_database(table, trade, tradeID)
 

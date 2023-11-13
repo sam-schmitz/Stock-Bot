@@ -61,15 +61,12 @@ def _stock_sector(tick):
 sb.stockServerV2.cPrice = _cPrice
 sb.stockServerV2.pPrice = _pPrice
 sb.stockServerV2.stock_sector = _stock_sector
+sb.stockServerV2.create_member_table = MagicMock()
 from sb.stockServerV2 import sbServer
     
 class testStockServer(unittest.TestCase):
 
-    #@patch('sb.stockServerV2.sc')
-    #@patch(sc, 'cPrice', side_effect=cPrice)
-    #@patch(sc, 'pPrice', side_effect=pPrice)
     @patch.object(sb.stockServerV2.datetime, 'datetime')
-
 
     def setUp(self, mock_datetime):
         self.cnxn = MagicMock()
@@ -351,7 +348,8 @@ class testStockServer(unittest.TestCase):
         self.server._make_table_name = MagicMock()
         self.server._make_table_name.side_effect = self.make_table_name
         self.server.add_trade(self.tradeBuy3)
-        self.server._update_member_database.assert_not_called()
+        self.server._update_member_database.assert_called_with('TrumpDonald', ['MSFT', 'BUY', datetime(2023, 8, 1), datetime(2023, 8, 15), 'Donald Trump', 'INFORMATION TECHNOLOGY', 14])
+        sb.stockServerV2.create_member_table.assert_called()
 
     def test_make_table_name_correct(self):
         self.assertEqual(self.server._make_table_name('Joe Biden'), 'BidenJoe')

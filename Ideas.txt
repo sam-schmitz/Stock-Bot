@@ -1,14 +1,20 @@
 Verion 1.1:
 Features:
+add_trade() - stockServerV2.py
+	Added in _update_member_database()
+	adds in tracking by member
+		each has their own table with their trades on it
 createServer.py
 	New program that sets up the server
+	__main__ => create_server()
 create_server() - createServer.py
 	Creates a new server
-_create_databse() - createServer.py
+_create_database() - createServer.py
 	Creates the Congress Trades database
 	Adds the Trades table
 create_member_table() - createServer.py
 	Creates a table for a given member
+
 
 Version 1.2:
 _update_DB_of_members() - stockServerV2.py
