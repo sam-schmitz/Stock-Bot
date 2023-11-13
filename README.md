@@ -13,6 +13,13 @@ stockServerV2.py:
 A wrapper object for a pyodbc connection. Stores the stock data in the SQL server
 
 Versions: 
+Version 1.1: Added createServer, MemberTables, and refresh_server()
+createServer.py : Created
+adds the CongressTrades database to a server and sets it up
+create_member_table adds a new member table to the db
+stockServerV2: added refresh_server
+the prices and profits in the server can now be updated using refresh_server
+_update_member_tables was added to track trades by member and the profits they gained compared to our potential
 Verison 1.0: Initial Version
 This is a new verion of an old project I had created. Most programs were reworked to improve efficiency and add a SQL database. 
 congressTrades.py: Created
